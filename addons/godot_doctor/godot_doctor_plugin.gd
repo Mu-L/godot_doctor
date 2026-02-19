@@ -341,7 +341,7 @@ func _get_export_props(object: Object) -> Array[Dictionary]:
 		return []
 
 	var script: Script = object.get_script()
-	if script == null and not object is Resource:
+	if script == null or not object is Resource:
 		return []
 
 	var export_props: Array[Dictionary] = []
