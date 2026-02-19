@@ -167,7 +167,7 @@ static func has_minimum_child_count(
 	node: Node,
 	minimum_count: int,
 	variable_name: String = "Node",
-	severity_level: Severity = Severity.WARNING
+	severity_level: Severity = Severity.ERROR
 ) -> ValidationCondition:
 	return ValidationCondition.new(
 		func() -> bool: return node.get_child_count() >= minimum_count,
