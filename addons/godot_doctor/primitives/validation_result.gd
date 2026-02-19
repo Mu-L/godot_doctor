@@ -12,7 +12,7 @@ var ok: bool:
 		return errors.size() == 0
 
 ## The list of error messages
-var errors: PackedStringArray = []
+var errors: Array[ValidationMessage] = []
 
 
 ## Initializes the ValidationResult.
