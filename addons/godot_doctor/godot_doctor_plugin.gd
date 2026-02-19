@@ -236,22 +236,32 @@ func _validate_resource_validation_conditions(
 	resource: Resource, validation_conditions: Array[ValidationCondition]
 ) -> void:
 	var validation_result: ValidationResult = ValidationResult.new(validation_conditions)
-	if validation_result.errors.size() > 0:
+	var validation_messages: Array[ValidationMessage] = validation_result.errors
+	if validation_messages.size() > 0:
+		var severity_level = (
+			validation_messages
+			. map(func(msg: ValidationMessage) -> int: return msg.severity_level)
+			. max()
+		)
+
 		_push_toast(
 			(
 				"Found %s configuration warning(s) in %s."
 				% [validation_result.errors.size(), resource.resource_path]
 			),
-			1
+			severity_level
 		)
-	for error in validation_result.errors:
+	for msg in validation_messages:
 		var name: String = resource.resource_path.split("/")[-1]
-		_print_debug("Found error in resource %s: %s" % [name, error])
-		_print_debug("Adding error to dock...")
-		# Push the warning to the dock, passing the original resource so the user can locate it.
-		_dock.add_resource_warning_to_dock(
-			resource, "[b]Configuration warning in %s:[/b]\n%s" % [name, error]
+		_print_debug(
+			(
+				"Found message with severity %s in node %s: %s"
+				% [msg.severity_level, resource, msg.message]
+			)
 		)
+		_print_debug("Adding message to dock...")
+		# Push the warning to the dock, passing the original resource so the user can locate it.
+		_dock.add_resource_warning_to_dock(resource, msg)
 
 
 ## Processes validation conditions for a node.
@@ -259,23 +269,35 @@ func _validate_resource_validation_conditions(
 func _validate_node_validation_conditions(
 	node: Node, validation_conditions: Array[ValidationCondition]
 ) -> void:
-	var errors: PackedStringArray = []
+	var validation_messages: Array[ValidationMessage] = []
 	# ValidationResult processes the conditions upon instantiation.
 	var validation_result = ValidationResult.new(validation_conditions)
-	errors.append_array(validation_result.errors)
+	validation_messages.append_array(validation_result.errors)
 	# Process the resulting errors
-	if errors.size() > 0:
+	if validation_messages.size() > 0:
+		var severity_level = (
+			validation_messages
+			. map(func(msg: ValidationMessage) -> int: return msg.severity_level)
+			. max()
+		)
+
 		_push_toast(
-			"Found %s configuration warnings in %s." % [validation_result.errors.size(), node.name],
-			1
+			(
+				"Found %s configuration warning(s) in %s."
+				% [validation_result.errors.size(), node.name]
+			),
+			severity_level
 		)
-	for error in errors:
-		_print_debug("Found error in node %s: %s" % [node.name, error])
-		_print_debug("Adding error to dock...")
+	for msg in validation_messages:
+		_print_debug(
+			(
+				"Found message with severity %s in node %s: %s"
+				% [msg.severity_level, node.name, msg.message]
+			)
+		)
+		_print_debug("Adding message to dock...")
 		# Push the warning to the dock, passing the original node so the user can locate it.
-		_dock.add_node_warning_to_dock(
-			node, "[b]Configuration warning in %s:[/b]\n%s" % [node.name, error]
-		)
+		_dock.add_node_warning_to_dock(node, msg)
 
 
 # ============================================================================
@@ -341,7 +363,7 @@ func _get_export_props(object: Object) -> Array[Dictionary]:
 		return []
 
 	var script: Script = object.get_script()
-	if script == null or not object is Resource:
+	if script == null:
 		return []
 
 	var export_props: Array[Dictionary] = []

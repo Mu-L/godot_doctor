@@ -7,8 +7,11 @@
 class_name ValidationCondition
 extends RefCounted
 
+enum Severity { INFO, WARNING, ERROR }
+
 var callable: Callable
 var error_message: String
+var severity_level: Severity
 
 
 ## Initializes a ValidationCondition with a callable and an error message.
@@ -16,9 +19,12 @@ var error_message: String
 ## an `Array` of nested `ValidationConditions`.
 ## The validation fails if the Callable evaluates to `false`.
 ## If the validation fails, the error_message will be used as a warning.
-func _init(callable: Callable, error_message: String) -> void:
+func _init(
+	callable: Callable, error_message: String, severity_level: Severity = Severity.WARNING
+) -> void:
 	self.callable = callable
 	self.error_message = error_message
+	self.severity_level = severity_level
 
 
 ## Evaluates the callable with the provided arguments.
@@ -30,7 +36,7 @@ func evaluate(args: Array = []) -> Variant:
 	if typeof(result) == TYPE_BOOL:
 		return result
 	if typeof(result) == TYPE_ARRAY:
-		# Esnure all items in the array are ValidationConditions
+		# Ensure all items in the array are ValidationConditions
 		for item in result:
 			if typeof(item) != typeof(ValidationCondition):
 				#gdlint: disable = max-line-length
@@ -51,8 +57,10 @@ func evaluate(args: Array = []) -> Variant:
 ## If the result is `false`, the provided error_message will be used.
 ## This is a convenience method for creating basic validation conditions,
 ## useful for skipping the callable syntax.
-static func simple(result: bool, error_message: String) -> ValidationCondition:
-	return ValidationCondition.new(func(): return result, error_message)
+static func simple(
+	result: bool, error_message: String, severity_level: Severity = Severity.WARNING
+) -> ValidationCondition:
+	return ValidationCondition.new(func(): return result, error_message, severity_level)
 
 
 ## Helper method that creates a ValidationCondition that checks whether a given instance is valid.
@@ -60,11 +68,12 @@ static func simple(result: bool, error_message: String) -> ValidationCondition:
 ## `variable_name` is the name of the variable being checked, and is "Instance" by default.
 ## This is a convenience method for checking instance validity, that generates a default error message.
 static func is_instance_valid(
-	instance: Object, variable_name: String = "Instance"
+	instance: Object, variable_name: String = "Instance", severity_level: Severity = Severity.ERROR
 ) -> ValidationCondition:
 	return ValidationCondition.new(
 		func() -> bool: return is_instance_valid(instance),
-		"%s is not a valid instance." % variable_name
+		"%s is not a valid instance." % variable_name,
+		severity_level
 	)
 
 
@@ -73,10 +82,10 @@ static func is_instance_valid(
 ## `variable_name` is the name of the variable being checked, and is "String" by default.
 ## This is a convenience method for checking string emptiness, that generates a default error message.
 static func string_not_empty(
-	value: String, variable_name: String = "String"
+	value: String, variable_name: String = "String", severity_level: Severity = Severity.WARNING
 ) -> ValidationCondition:
 	return ValidationCondition.new(
-		func() -> bool: return not value.is_empty(), "%s is empty." % variable_name
+		func() -> bool: return not value.is_empty(), "%s is empty." % variable_name, severity_level
 	)
 
 
@@ -87,9 +96,9 @@ static func string_not_empty(
 ## This is a convenience method for checking stripped string emptiness,
 ## that generates a default error message.
 static func stripped_string_not_empty(
-	value: String, variable_name: String = "String"
+	value: String, variable_name: String = "String", severity_level: Severity = Severity.WARNING
 ) -> ValidationCondition:
-	return string_not_empty(value.strip_edges(), variable_name)
+	return string_not_empty(value.strip_edges(), variable_name, severity_level)
 
 
 ## Helper method that creates a ValidationCondition that checks whether a given value is within a specified integer range.
@@ -98,11 +107,15 @@ static func stripped_string_not_empty(
 ## `variable_name` is the name of the variable being checked, and is "Value" by default.
 ## This is a convenience method for checking integer ranges, that generates a default error message.
 static func is_in_range_int(
-	value: int, range: RangeInt, variable_name: String = "Value"
+	value: int,
+	range: RangeInt,
+	variable_name: String = "Value",
+	severity_level: Severity = Severity.ERROR
 ) -> ValidationCondition:
 	return ValidationCondition.new(
 		func() -> bool: return range.contains(value),
-		"%s (%d) is out of range (%d to %d)." % [variable_name, value, range.start, range.end]
+		"%s (%d) is out of range (%d to %d)." % [variable_name, value, range.start, range.end],
+		severity_level
 	)
 
 
@@ -112,11 +125,15 @@ static func is_in_range_int(
 ## `variable_name` is the name of the variable being checked, and is "Value" by default.
 ## This is a convenience method for checking float ranges, that generates a default error message.
 static func is_in_range_float(
-	value: float, range: RangeFloat, variable_name: String = "Value"
+	value: float,
+	range: RangeFloat,
+	variable_name: String = "Value",
+	severity_level: Severity = Severity.ERROR
 ) -> ValidationCondition:
 	return ValidationCondition.new(
 		func() -> bool: return range.contains(value),
-		"%s (%f) is out of range (%f to %f)." % [variable_name, value, range.start, range.end]
+		"%s (%f) is out of range (%f to %f)." % [variable_name, value, range.start, range.end],
+		severity_level
 	)
 
 
@@ -126,11 +143,18 @@ static func is_in_range_float(
 ## `variable_name` is the name of the variable name used for the `node`, and is "Node" by default.
 ## This is a convenience method for checking child count, that generates a default error message.
 static func has_child_count(
-	node: Node, expected_count: int, variable_name: String = "Node"
+	node: Node,
+	expected_count: int,
+	variable_name: String = "Node",
+	severity_level: Severity = Severity.WARNING
 ) -> ValidationCondition:
 	return ValidationCondition.new(
 		func() -> bool: return node.get_child_count() == expected_count,
-		"%s has %d children, expected %d." % [variable_name, node.get_child_count(), expected_count]
+		(
+			"%s has %d children, expected %d."
+			% [variable_name, node.get_child_count(), expected_count]
+		),
+		severity_level
 	)
 
 
@@ -140,14 +164,18 @@ static func has_child_count(
 ## `variable_name` is the name of the variable name used for the `node`, and is "Node" by default.
 ## This is a convenience method for checking minimum child count, that generates a default error message.
 static func has_minimum_child_count(
-	node: Node, minimum_count: int, variable_name: String = "Node"
+	node: Node,
+	minimum_count: int,
+	variable_name: String = "Node",
+	severity_level: Severity = Severity.WARNING
 ) -> ValidationCondition:
 	return ValidationCondition.new(
 		func() -> bool: return node.get_child_count() >= minimum_count,
 		(
 			"%s has %d children, expected at least %d."
 			% [variable_name, node.get_child_count(), minimum_count]
-		)
+		),
+		severity_level
 	)
 
 
@@ -157,14 +185,18 @@ static func has_minimum_child_count(
 ## `variable_name` is the name of the variable name used for the `node`, and is "Node" by default.
 ## This is a convenience method for checking maximum child count, that generates a default error message.
 static func has_maximum_child_count(
-	node: Node, maximum_count: int, variable_name: String = "Node"
+	node: Node,
+	maximum_count: int,
+	variable_name: String = "Node",
+	severity_level: Severity = Severity.ERROR
 ) -> ValidationCondition:
 	return ValidationCondition.new(
 		func() -> bool: return node.get_child_count() <= maximum_count,
 		(
 			"%s has %d children, expected at most %d."
 			% [variable_name, node.get_child_count(), maximum_count]
-		)
+		),
+		severity_level
 	)
 
 
@@ -172,8 +204,10 @@ static func has_maximum_child_count(
 ## `node` should be the Node we want to validate.
 ## `variable_name` is the name of the variable name used for the `node`, and is "Node" by default.
 ## This is a convenience method for checking absence of children, that generates a default error message.
-static func has_no_children(node: Node, variable_name: String = "Node") -> ValidationCondition:
-	return has_child_count(node, 0, variable_name)
+static func has_no_children(
+	node: Node, variable_name: String = "Node", severity_level: Severity = Severity.WARNING
+) -> ValidationCondition:
+	return has_child_count(node, 0, variable_name, severity_level)
 
 
 ## Returns a validation condition that checks whether the `node` has a child at the specified `path`.
@@ -182,11 +216,15 @@ static func has_no_children(node: Node, variable_name: String = "Node") -> Valid
 ## `variable_name` is the name of the variable name used for the `node`, and is "Node" by default.
 ## This is a convenience method for checking child existence, that generates a default error message.
 static func has_node_path(
-	node: Node, path: NodePath, variable_name: String = "Node"
+	node: Node,
+	path: NodePath,
+	variable_name: String = "Node",
+	severity_level: Severity = Severity.ERROR
 ) -> ValidationCondition:
 	return ValidationCondition.new(
 		func() -> bool: return node.has_node(path),
-		"%s does not have a child at path: %s." % [variable_name, path]
+		"%s does not have a child at path: %s." % [variable_name, path],
+		severity_level
 	)
 
 
@@ -195,7 +233,10 @@ static func has_node_path(
 ## `expected_type` should be the type of the script attached to the root node of the `packed_scene`.
 ## `variable_name` is the name of the variable name used for the `packed_scene`, and is "Packed Scene" by default.
 static func scene_is_of_type(
-	packed_scene: PackedScene, expected_type: Variant, variable_name: String = "Packed Scene"
+	packed_scene: PackedScene,
+	expected_type: Variant,
+	variable_name: String = "Packed Scene",
+	severity_level: Severity = Severity.ERROR
 ) -> ValidationCondition:
 	return ValidationCondition.new(
 		func() -> Variant:
@@ -215,7 +256,8 @@ static func scene_is_of_type(
 						(
 							"%s has no script attached. (Expecting: %s)"
 							% [variable_name, expected_name]
-						)
+						),
+						severity_level
 					)
 				]
 
@@ -229,7 +271,8 @@ static func scene_is_of_type(
 							(
 								"%s has a script attached, but it bears no 'class_name'. (Expecting: %s)"
 								% [variable_name, expected_name]
-							)
+							),
+							severity_level
 						)
 					)
 				]
@@ -244,11 +287,13 @@ static func scene_is_of_type(
 						(
 							"%s script type (%s) is a mismatch. (Expecting: %s)"
 							% [variable_name, found_name, expected_name]
-						)
+						),
+						severity_level
 					)
 				]
 			return true,
-		""  # No error message needed here, as the condition is always true at this point.
+		"",  # No error message needed here, as the condition is always true at this point.
+		severity_level
 	)
 
 
